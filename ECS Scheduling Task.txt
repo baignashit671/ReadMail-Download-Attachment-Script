@@ -1,0 +1,22 @@
+Nashit Baig, Akhil Kandari - This module instance was running today. I stopped it manually
+ 
+Please do the needful - so it will not run on saturday/sunday next time
+ 
+dino-test-private-cluster-marketaxessclient   --- start		00 9 * * Mon-Fri	Asia/Kolkat  --stop  00 1 * * Tue-Sat	Asia/Kolkata
+dino-test-private-cluster-brokertec   --- Not Given Schedule
+dino-uat-private-cluster-icebondpoint  --- start  00 9 * * Mon	Asia/Kolkata, Stop  30 23 * * Fri	Asia/Kolkata
+liteoms-test-public   --- Not Given
+dino-uat-private-cluster-trafix   ---  start 00 9 * * Mon	Asia/Kolkata,  Stop  30 23 * * Fri	Asia/Kolkata
+
+   *       *          *             *               *
+[Minute] [Hour] [Day_of_Month] [Month_of_Year] [Day_of_Week]. 
+For example, the cron expression 30 6 * * 2 
+configures a scheduled action that recurs every Tuesday at 6:30 AM..
+
+
+
+dino-test-private-cluster-marketaxessclient ---STOP--   00 1 * * Tue-Sat
+dino-test-private-cluster-brokertec --- STOP--          00 1 * * Tue-Sat
+dino-uat-private-cluster-icebondpoint  ---STOP--        30 23 * * Fri
+liteoms-test-public  ---STOP--                          00 1 * * Tue-Sat
+dino-uat-private-cluster-trafix                         30 23 * * Fri	  

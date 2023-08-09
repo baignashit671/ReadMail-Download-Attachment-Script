@@ -1,0 +1,92 @@
+version: 0.2
+env:
+  variables:
+    project: "dino"
+    moduleName: "financing"
+    environment: "prod"
+    moduleType: "private"
+    repositoryURI: "919343063061.dkr.ecr.us-east-1.amazonaws.com/dino-prod-repository-financing"
+    imageTag: "latest"
+phases:
+  install:
+    runtime-versions:
+        docker: 20
+  pre_build:
+    commands:
+      #- project="dino"
+      #- moduleName="dash-fix"
+      #- environment="test"
+      #- moduleType="private"
+      #- repositoryURI="919343063061.dkr.ecr.us-east-1.amazonaws.com/dino-test-repository-dash-fix"
+      #- imageTag="latest"
+      - taskName="$project-$environment-task-$moduleName"
+      - serviceName="$project-$environment-service-$moduleName"
+      - clusterName="$project-$environment-$moduleType-cluster-$moduleName"
+      - echo Task Name = $taskName
+      - echo Service Name = $serviceName
+      - echo Cluster Name = $clusterName
+      - echo Image URI = $repositoryURI
+      - echo Copying file from s3
+      - dinodbopsfile=$(cat package.json | jq -r '.dependencies.dinodbops')
+      - dinodbopsfile=$(echo $dinodbopsfile | cut -d':' -f2)
+      - echo dinodbopsfile = $dinodbopsfile
+      - dinologservice=$(cat package.json | jq -r '.dependencies.dinologservice')
+      - dinologservice=$(echo $dinologservice | cut -d':' -f2)
+      - echo dinologservice = $dinologservice
+      - dinos3service=$(cat package.json | jq -r '.dependencies.dinos3service')
+      - dinos3service=$(echo $dinos3service | cut -d':' -f2)
+      - echo dinos3service = $dinos3service
+      - dinoredisservice=$(cat package.json | jq -r '.dependencies.dinoredisservice')
+      - dinoredisservice=$(echo $dinoredisservice | cut -d':' -f2)
+      - echo dinoredisservice = $dinoredisservice
+      #- dinoemailservice=$(cat package.json | jq -r '.dependencies.dinoemailservice')
+      #- dinoemailservice=$(echo $dinoemailservice | cut -d':' -f2)
+      #- echo dinoemailservice = $dinoemailservice
+      - aws s3 cp s3://dino-prod-content/BuildModule/$dinodbopsfile .
+      - aws s3 cp s3://dino-prod-content/BuildModule/$dinologservice .
+      - aws s3 cp s3://dino-prod-content/BuildModule/$dinoredisservice .
+      - aws s3 cp s3://dino-prod-content/BuildModule/$dinos3service .
+      #- aws s3 cp s3://dino-prod-content/BuildModule/$dinoemailservice .
+	  - cp .env.prod .env
+      - echo Logging in to Amazon ECR...
+      - $(aws ecr get-login --no-include-email --region $AWS_DEFAULT_REGION)
+  build:
+    commands:
+      - echo Commit ID is $CODEBUILD_SOURCE_VERSION and webhook trigger is $CODEBUILD_WEBHOOK_TRIGGER
+      - echo Building the Docker image on `date`
+      - docker build -t $repositoryURI:$imageTag .
+      - docker tag $repositoryURI:$imageTag $repositoryURI:$imageTag
+      - echo Build completed on `date`
+      - echo Pushing the Docker images...
+      - docker push $repositoryURI:$imageTag
+      - echo getting task definition
+      - taskDefinition=$(aws ecs describe-task-definition --task-definition "$taskName")
+      - echo taskDefinition = $taskDefinition
+      - echo getting cluster definition
+      - containerDefinition=$(echo $taskDefinition | jq '.taskDefinition.containerDefinitions' | awk -v ORS= -v OFS= '{$1=$1}1')
+      - echo containerDefinition = $containerDefinition
+      - echo creating new task definition
+      - aws ecs register-task-definition --family "$taskName" --container-definitions $containerDefinition
+      - echo getting existing running task
+      - taskID=$(aws ecs list-tasks --cluster "$clusterName" --desired-status RUNNING --family "$taskName" | egrep "task" | tr "/" " " | tr "[" " " | awk '{print $3}' | sed 's/"$//' | tr -d '\n')
+      - echo running task = $taskID
+      - echo stopping current running task $taskID
+      - aws ecs stop-task --cluster "$clusterName" --task ${taskID}
+      - echo updating service
+      - aws ecs update-service --cluster "$clusterName" --service "$serviceName" --task-definition "$taskName"
+  post_build:
+    commands:
+      # - command
+      # - command
+      - | 
+         BuildName=$(echo $CODEBUILD_BUILD_ID | cut -d':' -f1)
+		 WebHook=https://fintechglobalcenter.webhook.office.com/webhookb2/91b1e3b3-af3d-41b1-aa70-2e5de030bcfe@7240cc0c-f46d-4da1-b781-c4ed392b0369/IncomingWebhook/70befc5b7154443f9e46699bf6bb6edf/b73e430d-b2fd-4be7-9e15-bd4a79820e05
+         if [ $CODEBUILD_BUILD_SUCCEEDING -eq 0 ] ; then
+            echo "Failed";
+            FailedData="<b style=color:red> Build Failed - $CODEBUILD_WEBHOOK_TRIGGER </b><br/> Build ID is $(echo $CODEBUILD_BUILD_ID | cut -d':' -f2)"
+            curl -X POST -H 'Content-type: application/json' --data '{"title":"'"$BuildName"'","text":"'"$FailedData"'"}' $WebHook
+         else
+            echo "Success";
+            SuccessData="<b style=color:green> Build Successed - $CODEBUILD_WEBHOOK_TRIGGER </b><br/> Build ID is $(echo $CODEBUILD_BUILD_ID | cut -d':' -f2)"
+            curl -X POST -H 'Content-type: application/json' --data '{"title":"'"$BuildName"'","text":"'"$SuccessData"'"}' $WebHook
+         fi

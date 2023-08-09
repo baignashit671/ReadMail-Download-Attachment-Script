@@ -1,0 +1,9 @@
+Hello Paul,
+
+We have deployed Bloomberg changes in Production Environment. Below are the credentials and attached the key. 
+
+Hostname/IP	Username	Password	Key name	Client name
+18.168.80.129	bloomberg	3aGU576s7QDE	Glimpse_bloomberg_private	Bloomberg
+
+Please provide the Ip address to whitelist. 
+Please check and let us know if anything
